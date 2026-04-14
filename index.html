@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ключевое слово using в ECMAScript</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/black.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/highlight/monokai.min.css">
+    <style>
+        .reveal h1, .reveal h2, .reveal h3 { text-transform: none; }
+        .reveal pre code { font-size: 0.85em; line-height: 1.3; }
+        .reveal table { font-size: 0.75em; }
+        .reveal table th, .reveal table td { padding: 0.3em 0.6em; border: 1px solid #555; }
+        .reveal .highlight { color: #42affa; }
+        .reveal .two-columns { display: flex; gap: 2em; }
+        .reveal .two-columns > * { flex: 1; }
+        .small-code pre code { font-size: 0.7em; }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <section>
+                <h1>Ключевое слово <code>using</code></h1>
+                <h2>в ECMAScript</h2>
+                <p><small>Управление ресурсами в современном JavaScript</small></p>
+            </section>
+
+            <section>
+                <h2>Содержание</h2>
+                <ol>
+                    <li>Что такое <code>using</code>?</li>
+                    <li>История появления</li>
+                    <li>Аналоги в других языках</li>
+                    <li>Зачем нужен <code>using</code>?</li>
+                    <li>Синтаксис и примеры</li>
+                    <li>Протокол Symbol.dispose</li>
+                    <li>Транспиляция</li>
+                    <li>Поддержка</li>
+                </ol>
+            </section>
+
+            <section>
+                <h2>Что такое <code>using</code>?</h2>
+                <p>Ключевое слово для <span class="highlight">автоматического управления ресурсами</span></p>
+                <ul>
+                    <li>Автоматически освобождает ресурсы при выходе из области видимости</li>
+                    <li>Работает по аналогии с try-finally</li>
+                    <li>Гарантирует выполнение cleanup-кода</li>
+                    <li>Избежание утечек ресурсов</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>История появления</h2>
+                <table>
+                    <tr>
+                        <th>Год</th>
+                        <th>Статус</th>
+                        <th>Описание</th>
+                    </tr>
+                    <tr>
+                        <td>2022</td>
+                        <td>Stage 1</td>
+                        <td>Предложение Hemanth HM</td>
+                    </tr>
+                    <tr>
+                        <td>2023</td>
+                        <td>Stage 3</td>
+                        <td>Утверждение спецификации</td>
+                    </tr>
+                    <tr>
+                        <td>2024</td>
+                        <td>Stage 4</td>
+                        <td>Включение в ES2024</td>
+                    </tr>
+                </table>
+                <p><small>Proposal: <a href="https://github.com/tc39/proposal-explicit-resource-management">tc39/proposal-explicit-resource-management</a></small></p>
+            </section>
+
+            <section>
+                <h2>Аналоги в других языках</h2>
+                <table>
+                    <tr>
+                        <th>Язык</th>
+                        <th>Конструкция</th>
+                        <th>Год</th>
+                    </tr>
+                    <tr>
+                        <td>C#</td>
+                        <td><code>using</code></td>
+                        <td>2003</td>
+                    </tr>
+                    <tr>
+                        <td>Python</td>
+                        <td><code>with</code></td>
+                        <td>2006</td>
+                    </tr>
+                    <tr>
+                        <td>Java</td>
+                        <td><code>try-with-resources</code></td>
+                        <td>2011</td>
+                    </tr>
+                    <tr>
+                        <td>Rust</td>
+                        <td>RAII / <code>drop</code></td>
+                        <td>2015</td>
+                    </tr>
+                    <tr>
+                        <td>Go</td>
+                        <td><code>defer</code></td>
+                        <td>2009</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section>
+                <h2>Зачем нужен <code>using</code>?</h2>
+                <div class="two-columns">
+                    <div>
+                        <h3>Проблема</h3>
+                        <ul>
+                            <li>Утечки памяти</li>
+                            <li>Открытые дескрипторы файлов</li>
+                            <li>Незакрытые соединения</li>
+                            <li>Забытый cleanup-код</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>Решение</h3>
+                        <ul>
+                            <li>Автоматический вызов dispose</li>
+                            <li>Детерминированное освобождение</li>
+                            <li>Чистый код</li>
+                            <li>Меньше ошибок</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Пример: файлы (до)</h2>
+                <pre><code class="language-javascript">let file;
+try {
+    file = await fs.open('data.txt', 'r');
+    const content = await file.readFile();
+    console.log(content);
+} finally {
+    if (file) {
+        await file.close();
+    }
+}</code></pre>
+                <p><small>Много boilerplate-кода</small></p>
+            </section>
+
+            <section>
+                <h2>Пример: файлы (с using)</h2>
+                <pre><code class="language-javascript">{
+    using file = await fs.open('data.txt', 'r');
+    const content = await file.readFile();
+    console.log(content);
+} // file.close() вызывается автоматически!</code></pre>
+                <p><span class="highlight">Чище и безопаснее!</span></p>
+            </section>
+
+            <section>
+                <h2>Пример: кастомный ресурс</h2>
+                <pre><code class="language-javascript">class DatabaseConnection {
+    #connection;
+    
+    constructor(url) {
+        this.#connection = connect(url);
+    }
+    
+    [Symbol.dispose]() {
+        this.#connection.close();
+        console.log('Connection closed');
+    }
+}
+
+{
+    using db = new DatabaseConnection('postgres://...');
+    db.query('SELECT * FROM users');
+} // [Symbol.dispose]() вызывается автоматически</code></pre>
+            </section>
+
+            <section>
+                <h2>await using</h2>
+                <p>Для <span class="highlight">асинхронного</span> освобождения ресурсов</p>
+                <pre><code class="language-javascript">class AsyncResource {
+    [Symbol.asyncDispose]() {
+        return this.close(); // возвращает Promise
+    }
+}
+
+{
+    await using resource = new AsyncResource();
+    await resource.doSomething();
+} // await resource[Symbol.asyncDispose]() автоматически</code></pre>
+            </section>
+
+            <section>
+                <h2>Протокол Symbol.dispose</h2>
+                <table>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Тип</th>
+                        <th>Описание</th>
+                    </tr>
+                    <tr>
+                        <td><code>Symbol.dispose</code></td>
+                        <td>Синхронный</td>
+                        <td>Метод для <code>using</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>Symbol.asyncDispose</code></td>
+                        <td>Асинхронный</td>
+                        <td>Метод для <code>await using</code></td>
+                    </tr>
+                </table>
+                <pre><code class="language-javascript">const resource = {
+    [Symbol.dispose]() {
+        console.log('Cleanup!');
+    }
+};
+
+using r = resource; // вызывает r[Symbol.dispose]()</code></pre>
+            </section>
+
+            <section>
+                <h2>Suppress - игнорирование null/undefined</h2>
+                <pre><code class="language-javascript">function readFile(path) {
+    using file = fs.openSync(path); // может быть null
+    
+    // Ошибка, если file === null!
+    // Решение:
+    using file = fs.openSync(path) ?? { [Symbol.dispose]() {} };
+}
+
+// Или SuppressInputStream (экспериментально)</code></pre>
+            </section>
+
+            <section>
+                <h2>Транспиляция в ES5/ES6</h2>
+                <div class="two-columns">
+                    <div>
+                        <h3>Исходный код</h3>
+                        <pre class="small-code"><code class="language-javascript">{
+    using r = getResource();
+    r.use();
+}</code></pre>
+                    </div>
+                    <div>
+                        <h3>Результат</h3>
+                        <pre class="small-code"><code class="language-javascript">{
+    var r = getResource();
+    try {
+        r.use();
+    } finally {
+        r[Symbol.dispose]();
+    }
+}</code></pre>
+                    </div>
+                </div>
+                <p><small>Транспиляторы: TypeScript 5.2+, Babel, SWC</small></p>
+            </section>
+
+            <section>
+                <h2>Поддержка в TypeScript</h2>
+                <table>
+                    <tr>
+                        <th>Версия</th>
+                        <th>Возможности</th>
+                    </tr>
+                    <tr>
+                        <td>5.2+</td>
+                        <td>Полная поддержка <code>using</code></td>
+                    </tr>
+                    <tr>
+                        <td>target: ESNext</td>
+                        <td>Нативная генерация</td>
+                    </tr>
+                    <tr>
+                        <td>target: ES5/ES6</td>
+                        <td>Транспиляция в try-finally</td>
+                    </tr>
+                </table>
+                <pre><code class="language-typescript">// tsconfig.json
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": ["ESNext"]
+    }
+}</code></pre>
+            </section>
+
+            <section>
+                <h2>Поддержка в браузерах</h2>
+                <table>
+                    <tr>
+                        <th>Браузер</th>
+                        <th>Версия</th>
+                        <th>Статус</th>
+                    </tr>
+                    <tr>
+                        <td>Chrome</td>
+                        <td>122+</td>
+                        <td>✅ Поддержка</td>
+                    </tr>
+                    <tr>
+                        <td>Firefox</td>
+                        <td>125+</td>
+                        <td>✅ Поддержка</td>
+                    </tr>
+                    <tr>
+                        <td>Safari</td>
+                        <td>17.4+</td>
+                        <td>✅ Поддержка</td>
+                    </tr>
+                    <tr>
+                        <td>Edge</td>
+                        <td>122+</td>
+                        <td>✅ Поддержка</td>
+                    </tr>
+                </table>
+                <p><small>Данные на апрель 2024</small></p>
+            </section>
+
+            <section>
+                <h2>Поддержка в Node.js</h2>
+                <table>
+                    <tr>
+                        <th>Версия</th>
+                        <th>Статус</th>
+                    </tr>
+                    <tr>
+                        <td>Node.js 20.10+</td>
+                        <td>✅ Полная поддержка</td>
+                    </tr>
+                    <tr>
+                        <td>Node.js 20.x (экспериментально)</td>
+                        <td>⚠️ Флаг <code>--harmony-explicit-resource-management</code></td>
+                    </tr>
+                    <tr>
+                        <td>Node.js 18.x</td>
+                        <td>❌ Не поддерживается</td>
+                    </tr>
+                </table>
+                <pre><code class="language-bash">node --harmony-explicit-resource-management app.js</code></pre>
+            </section>
+
+            <section>
+                <h2>Встроенные объекты</h2>
+                <p>Объекты с поддержкой <code>Symbol.dispose</code>:</p>
+                <ul>
+                    <li><code>FileSystemHandle</code> (File System Access API)</li>
+                    <li><code>ReadableStream</code>, <code>WritableStream</code></li>
+                    <li>Новые API в Node.js (экспериментально)</li>
+                </ul>
+                <pre><code class="language-javascript">// Пример с File System Access API
+const handle = await window.showOpenFilePicker();
+using file = handle.getFile();
+// Автоматическое освобождение при выходе из scope</code></pre>
+            </section>
+
+            <section>
+                <h2>DisposableStack</h2>
+                <p>Утилита для группировки ресурсов</p>
+                <pre><code class="language-javascript">using stack = new DisposableStack();
+const r1 = stack.use(getResource1());
+const r2 = stack.use(getResource2());
+const r3 = stack.use(getResource3());
+
+// Все ресурсы освобождаются одной командой
+stack.dispose(); // или автоматически при выходе из scope
+
+// Асинхронная версия:
+using asyncStack = new AsyncDisposableStack();
+await asyncStack.use(getAsyncResource());</code></pre>
+            </section>
+
+            <section>
+                <h2>Сравнение: using vs try-finally</h2>
+                <table>
+                    <tr>
+                        <th>Критерий</th>
+                        <th><code>using</code></th>
+                        <th><code>try-finally</code></th>
+                    </tr>
+                    <tr>
+                        <td>Читаемость</td>
+                        <td>✅ Высокая</td>
+                        <td>⚠️ Средняя</td>
+                    </tr>
+                    <tr>
+                        <td>Boilerplate</td>
+                        <td>✅ Минимум</td>
+                        <td>❌ Много</td>
+                    </tr>
+                    <tr>
+                        <td>Гарантия очистки</td>
+                        <td>✅ Автоматическая</td>
+                        <td>⚠️ Ручная</td>
+                    </tr>
+                    <tr>
+                        <td>Поддержка</td>
+                        <td>⚠️ Новая</td>
+                        <td>✅ Везде</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section>
+                <h2>Лучшие практики</h2>
+                <ul>
+                    <li>Используйте <code>using</code> для ресурсов с детерминированным освобождением</li>
+                    <li>Реализуйте <code>Symbol.dispose</code> в своих классах</li>
+                    <li>Используйте <code>await using</code> для асинхронных ресурсов</li>
+                    <li>Группируйте ресурсы с <code>DisposableStack</code></li>
+                    <li>Проверяйте поддержку в целевой среде</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Итоги</h2>
+                <ul>
+                    <li><code>using</code> — стандартизирован в ES2024</li>
+                    <li>Упрощает управление ресурсами</li>
+                    <li>Избежание утечек памяти</li>
+                    <li>Аналог <code>using</code> в C#, <code>with</code> в Python</li>
+                    <li>Поддержка в TypeScript 5.2+</li>
+                    <li>Современные браузеры и Node.js 20.10+</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Полезные ссылки</h2>
+                <ul>
+                    <li><a href="https://github.com/tc39/proposal-explicit-resource-management">TC39 Proposal</a></li>
+                    <li><a href="https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-2.html">TypeScript 5.2 Release Notes</a></li>
+                    <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/using">MDN Documentation</a></li>
+                    <li><a href="https://caniuse.com/?search=using">Can I Use</a></li>
+                </ul>
+            </section>
+
+            <section>
+                <h1>Спасибо за внимание!</h1>
+                <p>Вопросы?</p>
+            </section>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/plugin/highlight/highlight.min.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: true,
+            plugins: [RevealHighlight()]
+        });
+    </script>
+</body>
+</html>
